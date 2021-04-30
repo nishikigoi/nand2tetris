@@ -62,7 +62,7 @@ class Parser():
             self._iter = iter(self._prog)
             self._index = 0
             for line in f:
-                line = line.strip()
+                line = line.strip().replace(' ', '')
                 end = line.find('//') if line.find('//') != -1 else len(line)
                 line = line[:end]
                 if line:
@@ -88,6 +88,7 @@ class Parser():
             return 'C_COMMAND'
         elif self._line.startswith('(') and self._line.endswith(')'):
             return 'L_COMMAND'
+        print(self._line)
         assert false
 
     def symbol(self):
@@ -117,18 +118,73 @@ class Code:
     def jump(self, mnemonic):
         return JUMP_MNEMONIC_MAP[mnemonic]
 
-def main():
-    input = sys.argv[1]
-    output = input.replace('.asm', '.hack')
-    parser = Parser(input)
+class SymbolTable:
+    def __init__(self):
+        self._table = {}
+
+    def addEntry(self, symbol, address):
+        self._table[symbol] = address
+
+    def contains(self, symbol):
+        return symbol in self._table
+
+    def getAddress(self, symbol):
+        return self._table[symbol]
+
+def create_rom_tbl(path):
+    parser = Parser(path)
+    rom_tbl = SymbolTable()
+    next_rom_addr = 0
+    while parser.hasMoreCommands():
+        line = ''
+        parser.advance()
+        cmd_type = parser.commandType()
+        if cmd_type == 'A_COMMAND':
+            next_rom_addr += 1
+        elif cmd_type == 'C_COMMAND':
+            next_rom_addr += 1
+        elif cmd_type == 'L_COMMAND':
+            sym = parser.symbol()
+            if not rom_tbl.contains(sym):
+                rom_tbl.addEntry(sym, next_rom_addr)
+    return rom_tbl
+
+def init_ram_tbl(tbl):
+    tbl.addEntry('SP', 0)
+    tbl.addEntry('LCL', 1)
+    tbl.addEntry('ARG', 2)
+    tbl.addEntry('THIS', 3)
+    tbl.addEntry('THAT', 4)
+    for i in range(0, 16):
+        tbl.addEntry('R{}'.format(i), i)
+    tbl.addEntry('SCREEN', 16384)
+    tbl.addEntry('KBD', 24576)
+
+def output_assembly_code(path, rom_tbl):
+    output = path.replace('.asm', '.hack')
+    parser = Parser(path)
     code = Code()
+    ram_tbl = SymbolTable()
+    init_ram_tbl(ram_tbl)
+    next_ram_addr = 16
+
     with open(output, 'w') as f:
         while parser.hasMoreCommands():
             line = ''
             parser.advance()
             cmd_type = parser.commandType()
             if cmd_type == 'A_COMMAND':
-                num = parser.symbol()
+                sym = parser.symbol()
+                if sym.isdigit():
+                    num = sym
+                elif rom_tbl.contains(sym):
+                    num = rom_tbl.getAddress(sym)
+                elif ram_tbl.contains(sym):
+                    num = ram_tbl.getAddress(sym)
+                else:
+                    ram_tbl.addEntry(sym, next_ram_addr)
+                    num = next_ram_addr
+                    next_ram_addr += 1
                 bnum = bin(int(num))[2:]
                 line += '0' * (16 - len(bnum))
                 line += bnum
@@ -137,10 +193,14 @@ def main():
                 line += code.comp(parser.comp())
                 line += code.dest(parser.dest())
                 line += code.jump(parser.jump())
-            elif cmd_type == 'L_COMMAND':
-                pass
+            else:
+                continue
             line += '\n'
             f.write(line)
+
+def main():
+    input = sys.argv[1]
+    output_assembly_code(input, create_rom_tbl(input))
 
 if __name__ == "__main__":
     main()
