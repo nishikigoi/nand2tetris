@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+
+import sys
+
+DEST_MNEMONIC_MAP = {
+    'null': '000',
+    'M': '001',
+    'D': '010',
+    'MD': '011',
+    'A': '100',
+    'AM': '101',
+    'AD': '110',
+    'AMD': '111',
+}
+
+COMP_MNEMONIC_MAP = {
+    '0': '0101010',
+    '1': '0111111',
+    '-1': '0111010',
+    'D': '0001100',
+    'A': '0110000',
+    '!D': '0001101',
+    '!A': '0110001',
+    '-D': '0001111',
+    '-A': '0110011',
+    'D+1': '0011111',
+    'A+1': '0110111',
+    'D-1': '0001110',
+    'A-1': '0110010',
+    'D+A': '0000010',
+    'D-A': '0010011',
+    'A-D': '0000111',
+    'D&A': '0000000',
+    'D|A': '0010101',
+    'M': '1110000',
+    '!M': '1110001',
+    '-M': '1110011',
+    'M+1': '1110111',
+    'M-1': '1110010',
+    'D+M': '1000010',
+    'D-M': '1010011',
+    'M-D': '1000111',
+    'D&M': '1000000',
+    'D|M': '1010101',
+}
+
+JUMP_MNEMONIC_MAP = {
+    'null': '000',
+    'JGT': '001',
+    'JEQ': '010',
+    'JGE': '011',
+    'JLT': '100',
+    'JNE': '101',
+    'JLE': '110',
+    'JMP': '111',
+}
+
+class Parser():
+    def __init__(self, path):
+        with open(path, 'r') as f:
+            self._prog = []
+            self._iter = iter(self._prog)
+            self._index = 0
+            for line in f:
+                line = line.strip()
+                end = line.find('//') if line.find('//') != -1 else len(line)
+                line = line[:end]
+                if line:
+                    self._prog.append(line)
+
+    def hasMoreCommands(self):
+        return self._index < len(self._prog)
+
+    def advance(self):
+        if self.hasMoreCommands():
+            self._line = next(self._iter)
+            if self.commandType() == 'C_COMMAND':
+                if not '=' in self._line:
+                    self._line = 'null=' + self._line
+                if not ';' in self._line:
+                    self._line += ';null'
+            self._index += 1
+
+    def commandType(self):
+        if self._line.startswith('@'):
+            return 'A_COMMAND'
+        elif '=' in self._line or ';' in self._line:
+            return 'C_COMMAND'
+        elif self._line.startswith('(') and self._line.endswith(')'):
+            return 'L_COMMAND'
+        assert false
+
+    def symbol(self):
+        cmd_type = self.commandType()
+        assert cmd_type == 'A_COMMAND' or cmd_type == 'L_COMMAND'
+        if cmd_type == 'A_COMMAND':
+            return self._line[1:]
+        elif cmd_type == 'L_COMMAND':
+            return self._line[1:-1]
+
+    def dest(self):
+        return self._line.split('=')[0]
+
+    def comp(self):
+        return self._line.split('=')[1].split(';')[0]
+
+    def jump(self):
+        return self._line.split('=')[1].split(';')[1]
+
+class Code:
+    def dest(self, mnemonic):
+        return DEST_MNEMONIC_MAP[mnemonic]
+
+    def comp(self, mnemonic):
+        return COMP_MNEMONIC_MAP[mnemonic]
+
+    def jump(self, mnemonic):
+        return JUMP_MNEMONIC_MAP[mnemonic]
+
+def main():
+    input = sys.argv[1]
+    output = input.replace('.asm', '.hack')
+    parser = Parser(input)
+    code = Code()
+    with open(output, 'w') as f:
+        while parser.hasMoreCommands():
+            line = ''
+            parser.advance()
+            cmd_type = parser.commandType()
+            if cmd_type == 'A_COMMAND':
+                num = parser.symbol()
+                bnum = bin(int(num))[2:]
+                line += '0' * (16 - len(bnum))
+                line += bnum
+            elif cmd_type == 'C_COMMAND':
+                line += '111'
+                line += code.comp(parser.comp())
+                line += code.dest(parser.dest())
+                line += code.jump(parser.jump())
+            elif cmd_type == 'L_COMMAND':
+                pass
+            line += '\n'
+            f.write(line)
+
+if __name__ == "__main__":
+    main()
