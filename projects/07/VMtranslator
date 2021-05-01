@@ -28,7 +28,7 @@ SYMBOL_LINE_MAP = {
     'static': '@',
     'this': '@THIS',
     'that': '@THAT',
-    'pointer': '@',
+    'pointer': '@THIS',
     'temp': '@5',
 }
 
@@ -122,30 +122,41 @@ class CodeWriter:
         lines = []
         base = 0
         if command == 'C_PUSH':
-            lines.append('@' + str(int(index)))
-            lines.append('D=A')
-            if segment != 'constant':
-                lines.append(SYMBOL_LINE_MAP[segment])
-                lines.append('A=D+A' if segment == 'temp' else 'A=D+M')
+            if segment == 'pointer':
+                lines.append('@' + ('THIS' if index == '0' else 'THAT'))
                 lines.append('D=M')
+            else:
+                lines.append('@' + str(int(index)))
+                lines.append('D=A')
+                if segment != 'constant':
+                    lines.append(SYMBOL_LINE_MAP[segment])
+                    lines.append('A=D+A' if segment == 'temp' else 'A=D+M')
+                    lines.append('D=M')
             lines.append('@SP')
             lines.append('AM=M+1')
             lines.append('A=A-1')
             lines.append('M=D')
             lines.append('')
         elif command == 'C_POP':
-            lines.append(SYMBOL_LINE_MAP[segment])
-            lines.append('D=A' if segment == 'temp' else 'D=M')
-            lines.append('@' + str(int(index)))
-            lines.append('D=D+A')
-            lines.append('@i')
+            if segment == 'pointer':
+                lines.append('@SP')
+                lines.append('AM=M-1')
+                lines.append('D=M')
+                lines.append('@' + ('THIS' if index == '0' else 'THAT'))
+            else:
+                lines.append(SYMBOL_LINE_MAP[segment])
+                lines.append('D=A' if segment == 'temp' else 'D=M')
+                lines.append('@' + str(int(index)))
+                lines.append('D=D+A')
+                lines.append('@i')
+                lines.append('M=D')
+                lines.append('@SP')
+                lines.append('AM=M-1')
+                lines.append('D=M')
+                lines.append('@i')
+                lines.append('A=M')
             lines.append('M=D')
-            lines.append('@SP')
-            lines.append('AM=M-1')
-            lines.append('D=M')
-            lines.append('@i')
-            lines.append('A=M')
-            lines.append('M=D')
+            lines.append('')
         for line in lines:
             self._f.write(line + '\n')
 
