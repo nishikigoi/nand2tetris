@@ -22,6 +22,16 @@ COMMAND_TYPE_MAP = {
     'call': 'C_CALL',
 }
 
+SYMBOL_LINE_MAP = {
+    'argument': '@ARG',
+    'local': '@LCL',
+    'static': '@',
+    'this': '@THIS',
+    'that': '@THAT',
+    'pointer': '@',
+    'temp': '@5',
+}
+
 class Parser():
     def __init__(self, path):
         with open(path, 'r') as f:
@@ -58,19 +68,10 @@ class Parser():
         arg = self._line.split(' ')[2]
         return arg
 
-
 class CodeWriter:
     def __init__(self, path):
         self._f = open(path, 'w')
         self._jump_index = 0
-        lines = []
-        lines.append('@256')
-        lines.append('D=A')
-        lines.append('@SP')
-        lines.append('M=D')
-        lines.append('')
-        for line in lines:
-            self._f.write(line + '\n')
 
     def setFileName(self, fileName):
         self._filename = fileName
@@ -121,17 +122,32 @@ class CodeWriter:
         lines = []
         base = 0
         if command == 'C_PUSH':
-            if segment == 'constant':
-                base = 0
-            lines.append('@' + str(base + int(index)))
+            lines.append('@' + str(int(index)))
             lines.append('D=A')
+            if segment != 'constant':
+                lines.append(SYMBOL_LINE_MAP[segment])
+                lines.append('A=D+A' if segment == 'temp' else 'A=D+M')
+                lines.append('D=M')
             lines.append('@SP')
             lines.append('AM=M+1')
             lines.append('A=A-1')
             lines.append('M=D')
             lines.append('')
-            for line in lines:
-                self._f.write(line + '\n')
+        elif command == 'C_POP':
+            lines.append(SYMBOL_LINE_MAP[segment])
+            lines.append('D=A' if segment == 'temp' else 'D=M')
+            lines.append('@' + str(int(index)))
+            lines.append('D=D+A')
+            lines.append('@i')
+            lines.append('M=D')
+            lines.append('@SP')
+            lines.append('AM=M-1')
+            lines.append('D=M')
+            lines.append('@i')
+            lines.append('A=M')
+            lines.append('M=D')
+        for line in lines:
+            self._f.write(line + '\n')
 
     def close(self):
         self._f.close()
