@@ -62,6 +62,7 @@ class Parser():
 class CodeWriter:
     def __init__(self, path):
         self._f = open(path, 'w')
+        self._jump_index = 0
         lines = []
         lines.append('@256')
         lines.append('D=A')
@@ -76,20 +77,45 @@ class CodeWriter:
 
     def writeArithmetic(self, command):
         lines = []
-        if command == 'add':
-            lines.append('@SP')
+        lines.append('@SP')
+        if command == 'neg':
+            lines.append('A=M-1')
+            lines.append('D=-M')
+        elif command == 'not':
+            lines.append('A=M-1')
+            lines.append('D=!M')
+        else:
             lines.append('AM=M-1')
             lines.append('D=M')
-            lines.append('@SP')
-            lines.append('AM=M-1')
-            lines.append('D=D+M')
-            lines.append('@SP')
-            lines.append('AM=M+1')
             lines.append('A=A-1')
-            lines.append('M=D')
-            lines.append('')
-            for line in lines:
-                self._f.write(line + '\n')
+            if command == 'add':
+                lines.append('D=M+D')
+            elif command == 'sub':
+                lines.append('D=M-D')
+            elif command == 'eq' or command == 'gt' or command == 'lt':
+                lines.append('D=M-D')
+                lines.append('@' + command + '$if_true' + str(self._jump_index))
+                lines.append('D;J' + command.upper())
+                lines.append('@' + command + '$if_false' + str(self._jump_index))
+                lines.append('0;JMP')
+                lines.append('(' + command + '$if_true' + str(self._jump_index) + ')')
+                lines.append('D=-1')
+                lines.append('@' + command + '$if_end' + str(self._jump_index))
+                lines.append('0;JMP')
+                lines.append('(' + command + '$if_false' + str(self._jump_index) + ')')
+                lines.append('D=0')
+                lines.append('(' + command + '$if_end' + str(self._jump_index) + ')')
+                lines.append('@SP')
+                lines.append('A=M-1')
+                self._jump_index += 1
+            elif command == 'and':
+                lines.append('D=M&D')
+            elif command == 'or':
+                lines.append('D=M|D')
+        lines.append('M=D')
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
 
     def writePushPop(self, command, segment, index):
         lines = []
@@ -123,6 +149,7 @@ def main():
             writer.writeArithmetic(parser.arg0())
         elif cmd_type == 'C_PUSH' or cmd_type == 'C_POP':
             writer.writePushPop(cmd_type, parser.arg1(), parser.arg2())
+    writer.close()
 
 if __name__ == "__main__":
     main()

@@ -20,11 +20,7 @@ M=D
 @SP
 AM=M-1
 D=M
-@SP
-AM=M-1
-D=D+M
-@SP
-AM=M+1
 A=A-1
+D=M+D
 M=D
 
