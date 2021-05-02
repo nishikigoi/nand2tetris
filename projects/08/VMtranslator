@@ -181,6 +181,75 @@ class CodeWriter:
         for line in lines:
             self._f.write(line + '\n')
 
+    def writeFunction(self, functionName, numLocals):
+        lines = []
+        lines.append('({})'.format(functionName))
+        lines.append('@R13')
+        lines.append('M=0')
+        lines.append('({}$loop_begin)'.format(functionName))
+        lines.append('@R13')
+        lines.append('D=M')
+        lines.append('@LCL')
+        lines.append('A=D+M')
+        lines.append('M=0')
+        lines.append('@R13')
+        lines.append('MD=M+1')
+        lines.append('@{}'.format(numLocals))
+        lines.append('D=D-A')
+        lines.append('@{}$loop_begin'.format(functionName))
+        lines.append('D;JLE')
+        lines.append('@{}'.format(numLocals))
+        lines.append('D=A')
+        lines.append('@SP')
+        lines.append('M=D+M')
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+
+    def _revertPtr(self, lines, label):
+        label_index_map = {
+            'THAT': '1',
+            'THIS': '2',
+            'ARG': '3',
+            'LCL': '4',
+        }
+        lines.append('@{}'.format(label_index_map[label]))
+        lines.append('D=A')
+        lines.append('@R13')
+        lines.append('A=M-D')
+        lines.append('D=M')
+        lines.append('@{}'.format(label))
+        lines.append('M=D')
+
+    def writeReturn(self):
+        lines = []
+        lines.append('@LCL')
+        lines.append('D=M')
+        lines.append('@R13')
+        lines.append('M=D')
+        lines.append('@SP')
+        lines.append('AM=M-1')
+        lines.append('D=M')
+        lines.append('@ARG')
+        lines.append('A=M')
+        lines.append('M=D')
+        lines.append('D=A+1')
+        lines.append('@SP')
+        lines.append('M=D')
+        self._revertPtr(lines, 'THAT')
+        self._revertPtr(lines, 'THIS')
+        self._revertPtr(lines, 'ARG')
+        self._revertPtr(lines, 'LCL')
+        lines.append('@5')
+        lines.append('D=A')
+        lines.append('@R13')
+        lines.append('A=M-D')
+        lines.append('A=M')
+        lines.append('0;JMP')
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+
     def close(self):
         self._f.close()
 
@@ -203,6 +272,10 @@ def main():
             writer.writeGoto(parser.arg1())
         elif cmd_type == 'C_IF':
             writer.writeIf(parser.arg1())
+        elif cmd_type == 'C_FUNCTION':
+            writer.writeFunction(parser.arg1(), parser.arg2())
+        elif cmd_type == 'C_RETURN':
+            writer.writeReturn()
     writer.close()
 
 if __name__ == "__main__":
