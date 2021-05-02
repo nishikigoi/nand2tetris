@@ -23,12 +23,12 @@ M=D
 D=A
 @8
 D=D+A
-@i
+@R13
 M=D
 @SP
 AM=M-1
 D=M
-@i
+@R13
 A=M
 M=D
 
@@ -36,12 +36,12 @@ M=D
 D=A
 @3
 D=D+A
-@i
+@R13
 M=D
 @SP
 AM=M-1
 D=M
-@i
+@R13
 A=M
 M=D
 
@@ -49,12 +49,12 @@ M=D
 D=A
 @1
 D=D+A
-@i
+@R13
 M=D
 @SP
 AM=M-1
 D=M
-@i
+@R13
 A=M
 M=D
 
