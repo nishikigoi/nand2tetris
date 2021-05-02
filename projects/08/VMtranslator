@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+
+import sys
+
+COMMAND_TYPE_MAP = {
+    'add': 'C_ARITHMETIC',
+    'sub': 'C_ARITHMETIC',
+    'neg': 'C_ARITHMETIC',
+    'eq': 'C_ARITHMETIC',
+    'gt': 'C_ARITHMETIC',
+    'lt': 'C_ARITHMETIC',
+    'and': 'C_ARITHMETIC',
+    'or': 'C_ARITHMETIC',
+    'not': 'C_ARITHMETIC',
+    'push': 'C_PUSH',
+    'pop': 'C_POP',
+    'label': 'C_LABEL',
+    'goto': 'C_GOTO',
+    'if-goto': 'C_IF',
+    'function': 'C_FUNCTION',
+    'return': 'C_RETURN',
+    'call': 'C_CALL',
+}
+
+SYMBOL_LINE_MAP = {
+    'argument': '@ARG',
+    'local': '@LCL',
+    'static': '@16',
+    'this': '@THIS',
+    'that': '@THAT',
+    'pointer': '@THIS',
+    'temp': '@5',
+}
+
+class Parser():
+    def __init__(self, path):
+        with open(path, 'r') as f:
+            self._prog = []
+            self._iter = iter(self._prog)
+            self._index = 0
+            for line in f:
+                end = line.find('//') if line.find('//') != -1 else len(line)
+                line = line[:end].strip()
+                if line:
+                    self._prog.append(line)
+
+    def hasMoreCommands(self):
+        return self._index < len(self._prog)
+
+    def advance(self):
+        if self.hasMoreCommands():
+            self._line = next(self._iter)
+            self._index += 1
+
+    def commandType(self):
+        cmd = self._line.split(' ')[0]
+        return COMMAND_TYPE_MAP[cmd]
+
+    def arg0(self):
+        arg = self._line.split(' ')[0]
+        return arg
+
+    def arg1(self):
+        arg = self._line.split(' ')[1]
+        return arg
+
+    def arg2(self):
+        arg = self._line.split(' ')[2]
+        return arg
+
+class CodeWriter:
+    def __init__(self, path):
+        self._f = open(path, 'w')
+        self._jump_index = 0
+
+    def setFileName(self, fileName):
+        self._filename = fileName
+
+    def writeArithmetic(self, command):
+        lines = []
+        lines.append('@SP')
+        if command == 'neg':
+            lines.append('A=M-1')
+            lines.append('D=-M')
+        elif command == 'not':
+            lines.append('A=M-1')
+            lines.append('D=!M')
+        else:
+            lines.append('AM=M-1')
+            lines.append('D=M')
+            lines.append('A=A-1')
+            if command == 'add':
+                lines.append('D=M+D')
+            elif command == 'sub':
+                lines.append('D=M-D')
+            elif command == 'eq' or command == 'gt' or command == 'lt':
+                lines.append('D=M-D')
+                lines.append('@' + command + '$if_true' + str(self._jump_index))
+                lines.append('D;J' + command.upper())
+                lines.append('@' + command + '$if_false' + str(self._jump_index))
+                lines.append('0;JMP')
+                lines.append('(' + command + '$if_true' + str(self._jump_index) + ')')
+                lines.append('D=-1')
+                lines.append('@' + command + '$if_end' + str(self._jump_index))
+                lines.append('0;JMP')
+                lines.append('(' + command + '$if_false' + str(self._jump_index) + ')')
+                lines.append('D=0')
+                lines.append('(' + command + '$if_end' + str(self._jump_index) + ')')
+                lines.append('@SP')
+                lines.append('A=M-1')
+                self._jump_index += 1
+            elif command == 'and':
+                lines.append('D=M&D')
+            elif command == 'or':
+                lines.append('D=M|D')
+        lines.append('M=D')
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+
+    def writePushPop(self, command, segment, index):
+        lines = []
+        if command == 'C_PUSH':
+            if segment == 'pointer':
+                lines.append('@' + ('THIS' if index == '0' else 'THAT'))
+                lines.append('D=M')
+            else:
+                lines.append('@' + str(int(index)))
+                lines.append('D=A')
+                if segment != 'constant':
+                    lines.append(SYMBOL_LINE_MAP[segment])
+                    lines.append('A=D+A' if (segment == 'static' or segment == 'temp') else 'A=D+M')
+                    lines.append('D=M')
+            lines.append('@SP')
+            lines.append('AM=M+1')
+            lines.append('A=A-1')
+            lines.append('M=D')
+            lines.append('')
+        elif command == 'C_POP':
+            if segment == 'pointer':
+                lines.append('@SP')
+                lines.append('AM=M-1')
+                lines.append('D=M')
+                lines.append('@' + ('THIS' if index == '0' else 'THAT'))
+            else:
+                lines.append(SYMBOL_LINE_MAP[segment])
+                lines.append('D=A' if (segment == 'static' or segment == 'temp') else 'D=M')
+                lines.append('@' + str(int(index)))
+                lines.append('D=D+A')
+                lines.append('@i')
+                lines.append('M=D')
+                lines.append('@SP')
+                lines.append('AM=M-1')
+                lines.append('D=M')
+                lines.append('@i')
+                lines.append('A=M')
+            lines.append('M=D')
+            lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+
+    def writeLabel(self, label):
+        self._f.write('({})\n'.format(label))
+
+    def writeGoto(self, label):
+        lines = []
+        lines.append('@' + label)
+        lines.append('0;JMP')
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+
+    def writeIf(self, label):
+        lines = []
+        lines.append('@SP')
+        lines.append('AM=M-1')
+        lines.append('D=M')
+        lines.append('@' + label)
+        lines.append('D;JNE')
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+
+    def close(self):
+        self._f.close()
+
+
+def main():
+    input = sys.argv[1]
+    output = input.replace('.vm', '.asm')
+    parser = Parser(input)
+    writer = CodeWriter(output)
+    while parser.hasMoreCommands():
+        parser.advance()
+        cmd_type = parser.commandType()
+        if cmd_type == 'C_ARITHMETIC':
+            writer.writeArithmetic(parser.arg0())
+        elif cmd_type == 'C_PUSH' or cmd_type == 'C_POP':
+            writer.writePushPop(cmd_type, parser.arg1(), parser.arg2())
+        elif cmd_type == 'C_LABEL':
+            writer.writeLabel(parser.arg1())
+        elif cmd_type == 'C_GOTO':
+            writer.writeGoto(parser.arg1())
+        elif cmd_type == 'C_IF':
+            writer.writeIf(parser.arg1())
+    writer.close()
+
+if __name__ == "__main__":
+    main()
