@@ -27,7 +27,7 @@ COMMAND_TYPE_MAP = {
 SYMBOL_LINE_MAP = {
     'argument': '@ARG',
     'local': '@LCL',
-    'static': '@16',
+    'static': '@STATIC',
     'this': '@THIS',
     'that': '@THAT',
     'pointer': '@THIS',
@@ -140,12 +140,15 @@ class CodeWriter:
             if segment == 'pointer':
                 lines.append('@' + ('THIS' if index == '0' else 'THAT'))
                 lines.append('D=M')
+            elif segment == 'static':
+                lines.append('@{}.{}'.format(self._filename, index))
+                lines.append('D=M')
             else:
                 lines.append('@' + str(int(index)))
                 lines.append('D=A')
                 if segment != 'constant':
                     lines.append(SYMBOL_LINE_MAP[segment])
-                    lines.append('A=D+A' if (segment == 'static' or segment == 'temp') else 'A=D+M')
+                    lines.append('A=D+A' if segment == 'temp' else 'A=D+M')
                     lines.append('D=M')
             lines.append('@SP')
             lines.append('AM=M+1')
@@ -158,9 +161,14 @@ class CodeWriter:
                 lines.append('AM=M-1')
                 lines.append('D=M')
                 lines.append('@' + ('THIS' if index == '0' else 'THAT'))
+            elif segment == 'static':
+                lines.append('@SP')
+                lines.append('AM=M-1')
+                lines.append('D=M')
+                lines.append('@{}.{}'.format(self._filename, index))
             else:
                 lines.append(SYMBOL_LINE_MAP[segment])
-                lines.append('D=A' if (segment == 'static' or segment == 'temp') else 'D=M')
+                lines.append('D=A' if segment == 'temp' else 'D=M')
                 lines.append('@' + str(int(index)))
                 lines.append('D=D+A')
                 lines.append('@R13')
@@ -260,7 +268,7 @@ class CodeWriter:
         self._stackCallerSymbol(lines, '@THAT')
         lines.append('@5')
         lines.append('D=A')
-        lines.append('@1')
+        lines.append('@{}'.format(numArgs))
         lines.append('D=A+D')
         lines.append('@SP')
         lines.append('D=M-D')
@@ -284,6 +292,13 @@ class CodeWriter:
         lines.append('D=M')
         lines.append('@R13')
         lines.append('M=D')
+        lines.append('@5')
+        lines.append('D=A')
+        lines.append('@R13')
+        lines.append('A=M-D')
+        lines.append('D=M')
+        lines.append('@R14')
+        lines.append('M=D')
         lines.append('@SP')
         lines.append('AM=M-1')
         lines.append('D=M')
@@ -297,10 +312,7 @@ class CodeWriter:
         self._revertPtr(lines, 'THIS')
         self._revertPtr(lines, 'ARG')
         self._revertPtr(lines, 'LCL')
-        lines.append('@5')
-        lines.append('D=A')
-        lines.append('@R13')
-        lines.append('A=M-D')
+        lines.append('@R14')
         lines.append('A=M')
         lines.append('0;JMP')
         lines.append('')
@@ -337,6 +349,8 @@ def main():
     traverse = False
     if os.path.isdir(input):
         traverse = True
+        if input[-1] == '/':
+            input = input[:-1]
         output = os.path.join(input, os.path.basename(input) + '.asm')
         writer = CodeWriter(output, sysinit=True)
     else:
@@ -347,13 +361,16 @@ def main():
         input = os.path.join(input, 'Sys.vm')
         if input in files:
             parser = Parser(input)
+            writer.setFileName(os.path.splitext(os.path.basename(input))[0])
             process(parser, writer)
             files.remove(input)
         for input in files:
             parser = Parser(input)
+            writer.setFileName(os.path.splitext(os.path.basename(input))[0])
             process(parser, writer)
     else:
         parser = Parser(input)
+        writer.setFileName(os.path.splitext(os.path.basename(input))[0])
         process(parser, writer)
     writer.close()
 
