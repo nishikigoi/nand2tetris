@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import glob
+import os
 import sys
 
 COMMAND_TYPE_MAP = {
@@ -69,9 +71,23 @@ class Parser():
         return arg
 
 class CodeWriter:
-    def __init__(self, path):
+    def __init__(self, path, sysinit=False):
         self._f = open(path, 'w')
         self._jump_index = 0
+        self._call_index = 0
+        if sysinit:
+            self._sysinit()
+
+    def _sysinit(self):
+        lines = []
+        lines.append('@256')
+        lines.append('D=A')
+        lines.append('@SP')
+        lines.append('M=D')
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+        self.writeCall('Sys.init', 0)
 
     def setFileName(self, fileName):
         self._filename = fileName
@@ -184,24 +200,25 @@ class CodeWriter:
     def writeFunction(self, functionName, numLocals):
         lines = []
         lines.append('({})'.format(functionName))
-        lines.append('@R13')
-        lines.append('M=0')
-        lines.append('({}$loop_begin)'.format(functionName))
-        lines.append('@R13')
-        lines.append('D=M')
-        lines.append('@LCL')
-        lines.append('A=D+M')
-        lines.append('M=0')
-        lines.append('@R13')
-        lines.append('MD=M+1')
-        lines.append('@{}'.format(numLocals))
-        lines.append('D=D-A')
-        lines.append('@{}$loop_begin'.format(functionName))
-        lines.append('D;JLE')
-        lines.append('@{}'.format(numLocals))
-        lines.append('D=A')
-        lines.append('@SP')
-        lines.append('M=D+M')
+        if int(numLocals) > 0:
+            lines.append('@R13')
+            lines.append('M=0')
+            lines.append('({}$loop_begin)'.format(functionName))
+            lines.append('@R13')
+            lines.append('D=M')
+            lines.append('@LCL')
+            lines.append('A=D+M')
+            lines.append('M=0')
+            lines.append('@R13')
+            lines.append('MD=M+1')
+            lines.append('@{}'.format(numLocals))
+            lines.append('D=D-A')
+            lines.append('@{}$loop_begin'.format(functionName))
+            lines.append('D;JLE')
+            lines.append('@{}'.format(numLocals))
+            lines.append('D=A')
+            lines.append('@SP')
+            lines.append('M=D+M')
         lines.append('')
         for line in lines:
             self._f.write(line + '\n')
@@ -220,6 +237,46 @@ class CodeWriter:
         lines.append('D=M')
         lines.append('@{}'.format(label))
         lines.append('M=D')
+
+    def _stackCallerSymbol(self, lines, symbol_line):
+        lines.append(symbol_line)
+        lines.append('D=M')
+        lines.append('@SP')
+        lines.append('AM=M+1')
+        lines.append('A=A-1')
+        lines.append('M=D')
+
+    def writeCall(self, functionName, numArgs):
+        lines = []
+        lines.append('@{}$return_to{}'.format(functionName, self._call_index))
+        lines.append('D=A')
+        lines.append('@SP')
+        lines.append('AM=M+1')
+        lines.append('A=A-1')
+        lines.append('M=D')
+        self._stackCallerSymbol(lines, '@LCL')
+        self._stackCallerSymbol(lines, '@ARG')
+        self._stackCallerSymbol(lines, '@THIS')
+        self._stackCallerSymbol(lines, '@THAT')
+        lines.append('@5')
+        lines.append('D=A')
+        lines.append('@1')
+        lines.append('D=A+D')
+        lines.append('@SP')
+        lines.append('D=M-D')
+        lines.append('@ARG')
+        lines.append('M=D')
+        lines.append('@SP')
+        lines.append('D=M')
+        lines.append('@LCL')
+        lines.append('M=D')
+        lines.append('@{}'.format(functionName))
+        lines.append('0;JMP')
+        lines.append('({}$return_to{})'.format(functionName, self._call_index))
+        lines.append('')
+        for line in lines:
+            self._f.write(line + '\n')
+        self._call_index += 1
 
     def writeReturn(self):
         lines = []
@@ -253,12 +310,7 @@ class CodeWriter:
     def close(self):
         self._f.close()
 
-
-def main():
-    input = sys.argv[1]
-    output = input.replace('.vm', '.asm')
-    parser = Parser(input)
-    writer = CodeWriter(output)
+def process(parser, writer):
     while parser.hasMoreCommands():
         parser.advance()
         cmd_type = parser.commandType()
@@ -272,10 +324,37 @@ def main():
             writer.writeGoto(parser.arg1())
         elif cmd_type == 'C_IF':
             writer.writeIf(parser.arg1())
-        elif cmd_type == 'C_FUNCTION':
-            writer.writeFunction(parser.arg1(), parser.arg2())
+        elif cmd_type == 'C_CALL':
+            writer.writeCall(parser.arg1(), parser.arg2())
         elif cmd_type == 'C_RETURN':
             writer.writeReturn()
+        elif cmd_type == 'C_FUNCTION':
+            writer.writeFunction(parser.arg1(), parser.arg2())
+
+
+def main():
+    input = sys.argv[1]
+    traverse = False
+    if os.path.isdir(input):
+        traverse = True
+        output = os.path.join(input, os.path.basename(input) + '.asm')
+        writer = CodeWriter(output, sysinit=True)
+    else:
+        output = input.replace('.vm', '.asm')
+        writer = CodeWriter(output)
+    if traverse:
+        files = glob.glob(os.path.join(input, '*.vm'))
+        input = os.path.join(input, 'Sys.vm')
+        if input in files:
+            parser = Parser(input)
+            process(parser, writer)
+            files.remove(input)
+        for input in files:
+            parser = Parser(input)
+            process(parser, writer)
+    else:
+        parser = Parser(input)
+        process(parser, writer)
     writer.close()
 
 if __name__ == "__main__":
