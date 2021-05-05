@@ -144,7 +144,16 @@ class CompilationEngine():
 
     def compileTerm(self, lines):
         lines.append('<term>')
-        self._tokenize(lines)
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == ')':
+                break
+            word = self._tokenize(lines)
+            if word == '(':
+                self._compileExpressionList(lines)
+                self._tokenize(lines) # ')'
+                break
         lines.append('</term>')
 
     def compileStatements(self, lines):
