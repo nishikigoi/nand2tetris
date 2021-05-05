@@ -66,9 +66,7 @@ class CompilationEngine():
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '(':
-                # TODO
-                lines.append('<expressionList>')
-                lines.append('</expressionList>')
+                self._compileExpressionList(lines)
             elif word == ';':
                 break
         lines.append('</doStatement>')
@@ -115,9 +113,27 @@ class CompilationEngine():
     def compileReturn(self, lines):
         lines.append('<returnStatement>')
         while self._tokenizer.hasMoreTokens():
-            if self._tokenize(lines) == ';':
-                break
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'return' or next_word == ';':
+                word = self._tokenize(lines)
+                if word == ';':
+                    break
+            else:
+                self.compileExpression(lines)
         lines.append('</returnStatement>')
+
+    def _compileExpressionList(self, lines):
+        lines.append('<expressionList>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == ')':
+                break
+            elif next_word == ',':
+                self._tokenize(lines)
+            self.compileExpression(lines)
+        lines.append('</expressionList>')
 
     def compileExpression(self, lines):
         lines.append('<expression>')
@@ -165,6 +181,7 @@ class CompilationEngine():
             next_word = next_token[0]
             if next_word == ')':
                 break
+            self._tokenize(lines)
         lines.append('</parameterList>')
 
     def _compileSubroutineBody(self, lines):
