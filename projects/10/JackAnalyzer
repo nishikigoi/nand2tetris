@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+
+import sys
+
+from jack_tokenizer import JackTokenizer
+from jack_tokenizer import TOKEN_TYPE_MAP
+
+class CompilationEngine():
+    def __init__(self, path, out_f):
+        self._tokenizer = JackTokenizer(path)
+        self._f = out_f
+
+    def _writeLines(self, lines):
+        for line in lines:
+            self._f.write(line + '\n')
+
+    def _tokenize(self, lines):
+        self._tokenizer.advance()
+        token_type = self._tokenizer.tokenType()
+        tag = TOKEN_TYPE_MAP[token_type]
+        tag_begin = '<{}>'.format(tag)
+        tag_end = '</{}>'.format(tag)
+        if token_type == 'KEYWORD':
+            word = self._tokenizer.keyWord().lower()
+        elif token_type == 'SYMBOL':
+            word = self._tokenizer.symbol()
+            if word == '<':
+                word = '&lt;'
+            elif word == '>':
+                word = '&gt;'
+            elif word == '&':
+                word = '&amp;'
+        elif token_type == 'IDENTIFIER':
+            word = self._tokenizer.identifier()
+        elif token_type == 'INT_CONST':
+            word = str(self._tokenizer.intVal())
+        elif token_type == 'STRING_CONST':
+            word = self._tokenizer.stringVal()
+        lines.append(' '.join([tag_begin, word, tag_end]))
+        return word
+
+    def compileClass(self):
+        lines = []
+        lines.append('<class>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'static' or next_word == 'field':
+                self.compileClassVarDec(lines)
+            elif next_word == 'constructor' or next_word == 'function' or next_word == 'method':
+                self.compileSubroutine(lines)
+            elif self._tokenize(lines) == '}':
+                break
+        lines.append('</class>')
+        self._writeLines(lines)
+
+    def compileClassVarDec(self, lines):
+        lines.append('<classVarDec>')
+        while self._tokenizer.hasMoreTokens():
+            if self._tokenize(lines) == ';':
+                break
+        lines.append('</classVarDec>')
+
+    def compileSubroutine(self, lines):
+        lines.append('<subroutineDec>')
+        while self._tokenizer.hasMoreTokens():
+            self._tokenize(lines)
+        lines.append('</subroutineDec>')
+
+
+def main():
+    input = sys.argv[1]
+    output = input.replace('.jack', '.xml')
+    with open(output, 'w') as f:
+        engine = CompilationEngine(input, f)
+        engine.compileClass()
+
+if __name__ == "__main__":
+    main()

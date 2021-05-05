@@ -96,6 +96,9 @@ class JackTokenizer():
     def hasMoreTokens(self):
         return self._index < len(self._tokens)
 
+    def peekNextToken(self):
+        return self._tokens[self._index]
+
     def advance(self):
         if self.hasMoreTokens():
             self._token = next(self._iter)
