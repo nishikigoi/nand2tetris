@@ -61,10 +61,140 @@ class CompilationEngine():
                 break
         lines.append('</classVarDec>')
 
+    def compileDo(self, lines):
+        lines.append('<doStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '(':
+                # TODO
+                lines.append('<expressionList>')
+                lines.append('</expressionList>')
+            elif word == ';':
+                break
+        lines.append('</doStatement>')
+
+    def compileLet(self, lines):
+        lines.append('<letStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '=':
+                self.compileExpression(lines)
+            elif word == ';':
+                break
+        lines.append('</letStatement>')
+
+    def compileWhile(self, lines):
+        lines.append('<whileStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '=':
+                self.compileExpression(lines)
+            elif word == ';':
+                break
+        lines.append('</whileStatement>')
+
+    def compileIf(self, lines):
+        lines.append('<ifStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '(':
+                self.compileExpression(lines)
+            elif word == '{':
+                self.compileStatements(lines)
+                self._tokenize(lines)
+                break
+        next_token = self._tokenizer.peekNextToken()
+        next_word = next_token[0]
+        if next_word == 'else':
+            self._tokenize(lines) # else
+            self._tokenize(lines) # {
+            self.compileStatements(lines)
+            self._tokenize(lines) # }
+        lines.append('</ifStatement>')
+
+    def compileReturn(self, lines):
+        lines.append('<returnStatement>')
+        while self._tokenizer.hasMoreTokens():
+            if self._tokenize(lines) == ';':
+                break
+        lines.append('</returnStatement>')
+
+    def compileExpression(self, lines):
+        lines.append('<expression>')
+        self.compileTerm(lines)
+        lines.append('</expression>')
+
+    def compileTerm(self, lines):
+        lines.append('<term>')
+        self._tokenize(lines)
+        lines.append('</term>')
+
+    def compileStatements(self, lines):
+        lines.append('<statements>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'do':
+                self.compileDo(lines)
+            elif next_word == 'let':
+                self.compileLet(lines)
+            elif next_word == 'while':
+                self.compileWhile(lines)
+            elif next_word == 'if':
+                self.compileIf(lines)
+            elif next_word == 'return':
+                self.compileReturn(lines)
+                break
+            elif next_word == '}':
+                break
+            else:
+                self._tokenize(lines)
+        lines.append('</statements>')
+
+    def _compileVarDec(self, lines):
+        lines.append('<varDec>')
+        while self._tokenizer.hasMoreTokens():
+            if self._tokenize(lines) == ';':
+                break
+        lines.append('</varDec>')
+
+    def compileParameterList(self, lines):
+        lines.append('<parameterList>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == ')':
+                break
+        lines.append('</parameterList>')
+
+    def _compileSubroutineBody(self, lines):
+        lines.append('<subroutineBody>')
+        self._tokenize(lines)
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'var':
+                self._compileVarDec(lines)
+            elif next_word == '}':
+                self._tokenize(lines)
+                break
+            else:
+                self.compileStatements(lines)
+        lines.append('</subroutineBody>')
+
     def compileSubroutine(self, lines):
         lines.append('<subroutineDec>')
         while self._tokenizer.hasMoreTokens():
-            self._tokenize(lines)
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == '(':
+                self._tokenize(lines)
+                self.compileParameterList(lines)
+            elif next_word == '{':
+                self._compileSubroutineBody(lines)
+                break
+            else:
+                self._tokenize(lines)
         lines.append('</subroutineDec>')
 
 
