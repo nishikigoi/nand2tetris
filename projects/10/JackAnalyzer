@@ -6,6 +6,7 @@ from jack_tokenizer import JackTokenizer
 from jack_tokenizer import TOKEN_TYPE_MAP
 
 OPS = ['+', '-', '*', '/', '&', '|', '<', '>', '=']
+UNARY_OPS = ['-', '~']
 
 class CompilationEngine():
     def __init__(self, path, out_f):
@@ -150,23 +151,34 @@ class CompilationEngine():
     def compileTerm(self, lines):
         is_next_op = False
         lines.append('<term>')
+        is_first_word = True
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
-            if next_word == ')' or next_word == ';' or next_word == ']':
-                break
-            elif next_word in OPS:
-                is_next_op = True
-                break
-            word = self._tokenize(lines)
-            if word == '(':
-                self._compileExpressionList(lines)
-                self._tokenize(lines) # ')'
-                break
-            elif word == '[':
-                self.compileExpression(lines)
-                self._tokenize(lines) # ']'
-                break
+            if is_first_word:
+                if next_word == '(':
+                    self._tokenize(lines) # (
+                    self.compileExpression(lines)
+                    self._tokenize(lines) # )
+                elif next_word in UNARY_OPS:
+                    self._tokenize(lines)
+                    self.compileTerm(lines)
+            else:
+                if next_word == ')' or next_word == ';' or next_word == ']':
+                    break
+                elif next_word in OPS:
+                    is_next_op = True
+                    break
+                word = self._tokenize(lines)
+                if word == '(':
+                    self._compileExpressionList(lines)
+                    self._tokenize(lines) # ')'
+                    break
+                elif word == '[':
+                    self.compileExpression(lines)
+                    self._tokenize(lines) # ']'
+                    break
+            is_first_word = False
         lines.append('</term>')
         return is_next_op
 
