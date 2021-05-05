@@ -69,7 +69,7 @@ class CompilationEngine():
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '(':
-                self._compileExpressionList(lines)
+                self.compileExpressionList(lines)
             elif word == ';':
                 break
         lines.append('</doStatement>')
@@ -128,7 +128,7 @@ class CompilationEngine():
                 self.compileExpression(lines)
         lines.append('</returnStatement>')
 
-    def _compileExpressionList(self, lines):
+    def compileExpressionList(self, lines):
         lines.append('<expressionList>')
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
@@ -171,7 +171,7 @@ class CompilationEngine():
                     break
                 word = self._tokenize(lines)
                 if word == '(':
-                    self._compileExpressionList(lines)
+                    self.compileExpressionList(lines)
                     self._tokenize(lines) # ')'
                     break
                 elif word == '[':
