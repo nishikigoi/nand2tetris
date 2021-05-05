@@ -85,9 +85,11 @@ class CompilationEngine():
         lines.append('<whileStatement>')
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
-            if word == '=':
+            if word == '(':
                 self.compileExpression(lines)
-            elif word == ';':
+            elif word == '{':
+                self.compileStatements(lines)
+                self._tokenize(lines)
                 break
         lines.append('</whileStatement>')
 
