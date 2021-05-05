@@ -77,7 +77,7 @@ class CompilationEngine():
         lines.append('<letStatement>')
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
-            if word == '=':
+            if word == '=' or word == '[':
                 self.compileExpression(lines)
             elif word == ';':
                 break
@@ -153,7 +153,7 @@ class CompilationEngine():
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
-            if next_word == ')' or next_word == ';':
+            if next_word == ')' or next_word == ';' or next_word == ']':
                 break
             elif next_word in OPS:
                 is_next_op = True
@@ -162,6 +162,10 @@ class CompilationEngine():
             if word == '(':
                 self._compileExpressionList(lines)
                 self._tokenize(lines) # ')'
+                break
+            elif word == '[':
+                self.compileExpression(lines)
+                self._tokenize(lines) # ']'
                 break
         lines.append('</term>')
         return is_next_op

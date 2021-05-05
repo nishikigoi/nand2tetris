@@ -107,7 +107,11 @@
               <keyword> let </keyword>
               <identifier> a </identifier>
               <symbol> [ </symbol>
-              <identifier> i </identifier>
+              <expression>
+                <term>
+                  <identifier> i </identifier>
+                </term>
+              </expression>
               <symbol> ] </symbol>
               <symbol> = </symbol>
               <expression>
@@ -195,7 +199,11 @@
                 <term>
                   <identifier> a </identifier>
                   <symbol> [ </symbol>
-                  <identifier> i </identifier>
+                  <expression>
+                    <term>
+                      <identifier> i </identifier>
+                    </term>
+                  </expression>
                   <symbol> ] </symbol>
                 </term>
               </expression>
