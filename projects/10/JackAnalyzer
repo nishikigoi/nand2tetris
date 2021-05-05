@@ -164,7 +164,7 @@ class CompilationEngine():
                     self._tokenize(lines)
                     self.compileTerm(lines)
             else:
-                if next_word == ')' or next_word == ';' or next_word == ']':
+                if next_word == ')' or next_word == ';' or next_word == ']' or next_word == ',':
                     break
                 elif next_word in OPS:
                     is_next_op = True
