@@ -5,6 +5,8 @@ import sys
 from jack_tokenizer import JackTokenizer
 from jack_tokenizer import TOKEN_TYPE_MAP
 
+OPS = ['+', '-', '*', '/', '&', '|', '<', '>', '=']
+
 class CompilationEngine():
     def __init__(self, path, out_f):
         self._tokenizer = JackTokenizer(path)
@@ -139,15 +141,22 @@ class CompilationEngine():
 
     def compileExpression(self, lines):
         lines.append('<expression>')
-        self.compileTerm(lines)
+        is_next_op = self.compileTerm(lines)
+        while is_next_op:
+            self._tokenize(lines) # op
+            is_next_op = self.compileTerm(lines)
         lines.append('</expression>')
 
     def compileTerm(self, lines):
+        is_next_op = False
         lines.append('<term>')
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
-            if next_word == ')':
+            if next_word == ')' or next_word == ';':
+                break
+            elif next_word in OPS:
+                is_next_op = True
                 break
             word = self._tokenize(lines)
             if word == '(':
@@ -155,6 +164,7 @@ class CompilationEngine():
                 self._tokenize(lines) # ')'
                 break
         lines.append('</term>')
+        return is_next_op
 
     def compileStatements(self, lines):
         lines.append('<statements>')
