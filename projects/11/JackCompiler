@@ -82,12 +82,18 @@ class CompilationEngine():
 
     def compileDo(self, lines):
         lines.append('<doStatement>')
+        self._tokenize(lines)   # do
+        wordcat = ''
+        funcname = ''
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '(':
-                self.compileExpressionList(lines)
+                funcname = wordcat
+                n_exprs = self.compileExpressionList(lines)
             elif word == ';':
                 break
+            wordcat += word
+        self._writer.writeCall(funcname, n_exprs)
         lines.append('</doStatement>')
 
     def compileLet(self, lines):
@@ -147,6 +153,7 @@ class CompilationEngine():
 
     def compileExpressionList(self, lines):
         lines.append('<expressionList>')
+        n_exprs = 0
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
@@ -155,7 +162,9 @@ class CompilationEngine():
             elif next_word == ',':
                 self._tokenize(lines)
             self.compileExpression(lines)
+            n_exprs += 1
         lines.append('</expressionList>')
+        return n_exprs
 
     def _writeOpFunction(self, op=None, unary_op=None):
         if op == '+':
