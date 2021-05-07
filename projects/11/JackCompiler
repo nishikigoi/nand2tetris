@@ -94,13 +94,18 @@ class CompilationEngine():
         self._tokenize(lines)   # do
         wordcat = ''
         funcname = ''
+        n_exprs = 0
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '(':
                 funcname = wordcat
-                n_exprs = self.compileExpressionList(lines)
+                n_exprs = n_exprs + self.compileExpressionList(lines)
             elif word == ';':
                 break
+            if self._tbl.typeOf(word):
+                self._writer.writePush('LOCAL', 0)
+                n_exprs = n_exprs + 1
+                word = self._tbl.typeOf(word)
             wordcat += word
         self._writer.writeCall(funcname, n_exprs)
         self._writer.writePop('TEMP', 0)
