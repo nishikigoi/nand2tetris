@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+
+import sys
+
+from jack_tokenizer import JackTokenizer
+from jack_tokenizer import TOKEN_TYPE_MAP
+from symbol_table import SymbolTable
+
+OPS = ['+', '-', '*', '/', '&', '|', '<', '>', '=']
+UNARY_OPS = ['-', '~']
+
+class CompilationEngine():
+    def __init__(self, path, out_f):
+        self._tokenizer = JackTokenizer(path)
+        self._f = out_f
+        self._classname = ''
+        self._tbl = SymbolTable()
+
+    def _writeLines(self, lines):
+        for line in lines:
+            self._f.write(line + '\n')
+
+    def _tokenize(self, lines):
+        self._tokenizer.advance()
+        token_type = self._tokenizer.tokenType()
+        tag = TOKEN_TYPE_MAP[token_type]
+        tag_begin = '<{}>'.format(tag)
+        tag_end = '</{}>'.format(tag)
+        if token_type == 'KEYWORD':
+            word = self._tokenizer.keyWord().lower()
+        elif token_type == 'SYMBOL':
+            word = self._tokenizer.symbol()
+            if word == '<':
+                word = '&lt;'
+            elif word == '>':
+                word = '&gt;'
+            elif word == '&':
+                word = '&amp;'
+        elif token_type == 'IDENTIFIER':
+            word = self._tokenizer.identifier()
+        elif token_type == 'INT_CONST':
+            word = str(self._tokenizer.intVal())
+        elif token_type == 'STRING_CONST':
+            word = self._tokenizer.stringVal()
+        lines.append(' '.join([tag_begin, word, tag_end]))
+        return word
+
+    def compileClass(self):
+        lines = []
+        lines.append('<class>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'class':
+                self._tokenize(lines) # class
+                self._classname = self._tokenize(lines) # classname
+            elif next_word == 'static' or next_word == 'field':
+                self.compileClassVarDec(lines)
+            elif next_word == 'constructor' or next_word == 'function' or next_word == 'method':
+                self.compileSubroutine(lines)
+            elif self._tokenize(lines) == '}':
+                break
+        lines.append('</class>')
+        print(self._tbl.getClassTbl())
+        self._writeLines(lines)
+
+    def compileClassVarDec(self, lines):
+        lines.append('<classVarDec>')
+        kind = self._tokenize(lines).upper()
+        _type = self._tokenize(lines)
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == ';':
+                break
+            elif word != ',':
+                if not self._tbl.kindOf(word):
+                    self._tbl.define(word, _type, kind)
+        lines.append('</classVarDec>')
+
+    def compileDo(self, lines):
+        lines.append('<doStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '(':
+                self.compileExpressionList(lines)
+            elif word == ';':
+                break
+        lines.append('</doStatement>')
+
+    def compileLet(self, lines):
+        lines.append('<letStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '=' or word == '[':
+                self.compileExpression(lines)
+            elif word == ';':
+                break
+        lines.append('</letStatement>')
+
+    def compileWhile(self, lines):
+        lines.append('<whileStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '(':
+                self.compileExpression(lines)
+            elif word == '{':
+                self.compileStatements(lines)
+                self._tokenize(lines)
+                break
+        lines.append('</whileStatement>')
+
+    def compileIf(self, lines):
+        lines.append('<ifStatement>')
+        while self._tokenizer.hasMoreTokens():
+            word = self._tokenize(lines)
+            if word == '(':
+                self.compileExpression(lines)
+            elif word == '{':
+                self.compileStatements(lines)
+                self._tokenize(lines)
+                break
+        next_token = self._tokenizer.peekNextToken()
+        next_word = next_token[0]
+        if next_word == 'else':
+            self._tokenize(lines) # else
+            self._tokenize(lines) # {
+            self.compileStatements(lines)
+            self._tokenize(lines) # }
+        lines.append('</ifStatement>')
+
+    def compileReturn(self, lines):
+        lines.append('<returnStatement>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'return' or next_word == ';':
+                word = self._tokenize(lines)
+                if word == ';':
+                    break
+            else:
+                self.compileExpression(lines)
+        lines.append('</returnStatement>')
+
+    def compileExpressionList(self, lines):
+        lines.append('<expressionList>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == ')':
+                break
+            elif next_word == ',':
+                self._tokenize(lines)
+            self.compileExpression(lines)
+        lines.append('</expressionList>')
+
+    def compileExpression(self, lines):
+        lines.append('<expression>')
+        is_next_op = self.compileTerm(lines)
+        while is_next_op:
+            self._tokenize(lines) # op
+            is_next_op = self.compileTerm(lines)
+        lines.append('</expression>')
+
+    def compileTerm(self, lines):
+        is_next_op = False
+        lines.append('<term>')
+        is_first_word = True
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if is_first_word:
+                if next_word == '(':
+                    self._tokenize(lines) # (
+                    self.compileExpression(lines)
+                    self._tokenize(lines) # )
+                elif next_word in UNARY_OPS:
+                    self._tokenize(lines)
+                    self.compileTerm(lines)
+            else:
+                if next_word == ')' or next_word == ';' or next_word == ']' or next_word == ',':
+                    break
+                elif next_word in OPS:
+                    is_next_op = True
+                    break
+                word = self._tokenize(lines)
+                if word == '(':
+                    self.compileExpressionList(lines)
+                    self._tokenize(lines) # ')'
+                    break
+                elif word == '[':
+                    self.compileExpression(lines)
+                    self._tokenize(lines) # ']'
+                    break
+            is_first_word = False
+        lines.append('</term>')
+        return is_next_op
+
+    def compileStatements(self, lines):
+        lines.append('<statements>')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'do':
+                self.compileDo(lines)
+            elif next_word == 'let':
+                self.compileLet(lines)
+            elif next_word == 'while':
+                self.compileWhile(lines)
+            elif next_word == 'if':
+                self.compileIf(lines)
+            elif next_word == 'return':
+                self.compileReturn(lines)
+                break
+            elif next_word == '}':
+                break
+            else:
+                self._tokenize(lines)
+        lines.append('</statements>')
+
+    def _compileVarDec(self, lines):
+        lines.append('<varDec>')
+        while self._tokenizer.hasMoreTokens():
+            if self._tokenize(lines) == ';':
+                break
+        lines.append('</varDec>')
+
+    def compileParameterList(self, lines):
+        lines.append('<parameterList>')
+        self._tbl.define('this', self._classname, 'ARG')
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == ')':
+                break
+            word = self._tokenize(lines)
+            if word != ',':
+                _type = word
+                name = self._tokenize(lines)
+                self._tbl.define(name, _type, 'ARG')
+        lines.append('</parameterList>')
+
+    def _compileSubroutineBody(self, lines):
+        lines.append('<subroutineBody>')
+        self._tokenize(lines)
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == 'var':
+                self._compileVarDec(lines)
+            elif next_word == '}':
+                self._tokenize(lines)
+                break
+            else:
+                self.compileStatements(lines)
+        lines.append('</subroutineBody>')
+
+    def compileSubroutine(self, lines):
+        lines.append('<subroutineDec>')
+        self._tbl.startSubroutine()
+        while self._tokenizer.hasMoreTokens():
+            next_token = self._tokenizer.peekNextToken()
+            next_word = next_token[0]
+            if next_word == '(':
+                self._tokenize(lines)
+                self.compileParameterList(lines)
+            elif next_word == '{':
+                self._compileSubroutineBody(lines)
+                break
+            else:
+                self._tokenize(lines)
+        print(self._tbl.getSubTbl())
+        lines.append('</subroutineDec>')
+
+
+def main():
+    input = sys.argv[1]
+    output = input.replace('.jack', '.xml')
+    with open(output, 'w') as f:
+        engine = CompilationEngine(input, f)
+        engine.compileClass()
+
+if __name__ == "__main__":
+    main()
