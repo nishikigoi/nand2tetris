@@ -177,14 +177,20 @@ class CompilationEngine():
             self._writer.writeCall('Math.multiply', 2)
         elif op == '/':
             self._writer.writeCall('Math.divide', 2)
+        elif unary_op == '-':
+            self._writer.writeArithmetic('neg')
+        elif unary_op == '~':
+            self._writer.writeArithmetic('not')
 
     def compileExpression(self, lines):
         lines.append('<expression>')
         is_next_op = self.compileTerm(lines)
+        has_op = is_next_op
         while is_next_op:
             word = self._tokenize(lines) # op
             is_next_op = self.compileTerm(lines)
-        self._writeOpFunction(word)
+        if has_op:
+            self._writeOpFunction(word)
         lines.append('</expression>')
 
     def compileTerm(self, lines):
@@ -200,8 +206,9 @@ class CompilationEngine():
                     self.compileExpression(lines)
                     self._tokenize(lines) # )
                 elif next_word in UNARY_OPS:
-                    self._tokenize(lines)
+                    word = self._tokenize(lines)
                     self.compileTerm(lines)
+                    self._writeOpFunction(op=None, unary_op=word)
             else:
                 if next_word == ')' or next_word == ';' or next_word == ']' or next_word == ',':
                     break
