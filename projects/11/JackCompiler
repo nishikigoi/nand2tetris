@@ -103,7 +103,15 @@ class CompilationEngine():
                     funcname = wordcat
                     if is_obj:
                         # outer method (obj.hoge())
-                        self._writer.writePush('LOCAL', 0)
+                        if kind == 'STATIC':
+                            segment = 'STATIC'
+                        elif kind == 'FIELD':
+                            segment = 'THIS'
+                        elif kind == 'ARG':
+                            segment = 'ARG'
+                        elif kind == 'VAR':
+                            segment = 'LOCAL'
+                        self._writer.writePush(segment, index)
                         n_exprs = n_exprs + 1
                     else:
                         # function (Class.hoge())
@@ -117,6 +125,8 @@ class CompilationEngine():
             elif word == ';':
                 break
             if self._tbl.typeOf(word):
+                kind = self._tbl.kindOf(word)
+                index = self._tbl.indexOf(word)
                 word = self._tbl.typeOf(word)
                 is_obj = True
             wordcat += word
