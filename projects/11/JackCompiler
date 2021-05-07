@@ -173,6 +173,7 @@ class CompilationEngine():
 
     def compileReturn(self, lines):
         lines.append('<returnStatement>')
+        compiled_expression = False
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
@@ -182,7 +183,9 @@ class CompilationEngine():
                     break
             else:
                 self.compileExpression(lines)
-        self._writer.writePush('CONST', 0)
+                compiled_expression = True
+        if not compiled_expression:
+            self._writer.writePush('CONST', 0)
         self._writer.writeReturn()
         lines.append('</returnStatement>')
 
@@ -359,6 +362,8 @@ class CompilationEngine():
     def compileSubroutine(self, lines):
         lines.append('<subroutineDec>')
         self._tbl.startSubroutine()
+        self._while_index = 0
+        self._if_index = 0
         word = self._tokenize(lines)   # constructor/function/method
         if word == 'method':
             self._tbl.define('this', self._classname, 'ARG')
