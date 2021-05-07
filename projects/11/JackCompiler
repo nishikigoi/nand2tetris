@@ -95,23 +95,30 @@ class CompilationEngine():
         wordcat = ''
         funcname = ''
         n_exprs = 0
+        is_obj = False
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '(':
                 if '.' in wordcat:
-                    # outer method
                     funcname = wordcat
-                    self._writer.writePush('LOCAL', 0)
+                    if is_obj:
+                        # outer method (obj.hoge())
+                        self._writer.writePush('LOCAL', 0)
+                        n_exprs = n_exprs + 1
+                    else:
+                        # function (Class.hoge())
+                        pass
                 else:
-                    # inner method
+                    # inner method (hoge())
                     funcname = self._classname + '.' + wordcat
                     self._writer.writePush('POINTER', 0)
-                n_exprs = n_exprs + 1
+                    n_exprs = n_exprs + 1
                 n_exprs = n_exprs + self.compileExpressionList(lines)
             elif word == ';':
                 break
             if self._tbl.typeOf(word):
                 word = self._tbl.typeOf(word)
+                is_obj = True
             wordcat += word
         self._writer.writeCall(funcname, n_exprs)
         self._writer.writePop('TEMP', 0)
@@ -166,20 +173,19 @@ class CompilationEngine():
                 self._writer.writeLabel(label_true)
                 self.compileStatements(lines)
                 self._tokenize(lines)
-                self._writer.writeGoto(label_end)
                 break
         next_token = self._tokenizer.peekNextToken()
         next_word = next_token[0]
         if next_word == 'else':
+            self._writer.writeGoto(label_end)
             self._tokenize(lines) # else
             self._tokenize(lines) # {
             self._writer.writeLabel(label_false)
             self.compileStatements(lines)
             self._tokenize(lines) # }
+            self._writer.writeLabel(label_end)
         else:
             self._writer.writeLabel(label_false)
-            self._writer.writeGoto(label_end)
-        self._writer.writeLabel(label_end)
         lines.append('</ifStatement>')
 
     def compileReturn(self, lines):
@@ -353,7 +359,7 @@ class CompilationEngine():
                 self._tbl.define(name, _type, 'ARG')
         lines.append('</parameterList>')
 
-    def _compileSubroutineBody(self, lines, is_constructor):
+    def _compileSubroutineBody(self, lines, method_type):
         lines.append('<subroutineBody>')
         self._tokenize(lines)
         while self._tokenizer.hasMoreTokens():
@@ -367,10 +373,15 @@ class CompilationEngine():
             else:
                 name = '{}.{}'.format(self._classname, self._funcname)
                 self._writer.writeFunction(name, self._tbl.varCount('VAR'))
-                if is_constructor:
+                if method_type == 'constructor':
                     self._writer.writePush('CONST', self._tbl.varCount('FIELD'))
                     self._writer.writeCall('Memory.alloc', 1)
-                    self._writer.writePush('POINTER', 0)
+                    self._writer.writePop('POINTER', 0)
+                elif method_type == 'method':
+                    self._writer.writePush('ARG', 0)
+                    self._writer.writePop('POINTER', 0)
+                elif method_type == 'function':
+                    pass
                 self.compileStatements(lines)
         lines.append('</subroutineBody>')
 
@@ -380,10 +391,9 @@ class CompilationEngine():
         self._while_index = 0
         self._if_index = 0
         word = self._tokenize(lines)   # constructor/function/method
-        is_constructor = False
-        if word == 'constructor':
-            is_constructor = True
-        elif word == 'method':
+        if word == 'constructor' or word == 'method' or word == 'function':
+            method_type = word
+        if method_type == 'method':
             self._tbl.define('this', self._classname, 'ARG')
         self._tokenize(lines)   # type
         self._funcname = self._tokenize(lines)   # function
@@ -394,7 +404,7 @@ class CompilationEngine():
                 self._tokenize(lines)
                 self.compileParameterList(lines)
             elif next_word == '{':
-                self._compileSubroutineBody(lines, is_constructor)
+                self._compileSubroutineBody(lines, method_type)
                 break
             else:
                 self._tokenize(lines)
