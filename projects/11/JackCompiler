@@ -148,6 +148,8 @@ class CompilationEngine():
                     break
             else:
                 self.compileExpression(lines)
+        self._writer.writePop('TEMP', 0)
+        self._writer.writePush('CONST', 0)
         self._writer.writeReturn()
         lines.append('</returnStatement>')
 
