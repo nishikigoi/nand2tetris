@@ -142,6 +142,7 @@ class CompilationEngine():
                     break
             else:
                 self.compileExpression(lines)
+        self._writer.writeReturn()
         lines.append('</returnStatement>')
 
     def compileExpressionList(self, lines):
@@ -156,12 +157,23 @@ class CompilationEngine():
             self.compileExpression(lines)
         lines.append('</expressionList>')
 
+    def _writeOpFunction(self, op=None, unary_op=None):
+        if op == '+':
+            self._writer.writeArithmetic('add')
+        elif op == '-':
+            self._writer.writeArithmetic('sub')
+        elif op == '*':
+            self._writer.writeCall('Math.multiply', 2)
+        elif op == '/':
+            self._writer.writeCall('Math.divide', 2)
+
     def compileExpression(self, lines):
         lines.append('<expression>')
         is_next_op = self.compileTerm(lines)
         while is_next_op:
-            self._tokenize(lines) # op
+            word = self._tokenize(lines) # op
             is_next_op = self.compileTerm(lines)
+        self._writeOpFunction(word)
         lines.append('</expression>')
 
     def compileTerm(self, lines):
@@ -194,6 +206,7 @@ class CompilationEngine():
                     self.compileExpression(lines)
                     self._tokenize(lines) # ']'
                     break
+                self._writer.writePush('CONST', word)
             is_first_word = False
         lines.append('</term>')
         return is_next_op

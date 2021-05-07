@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
 
+SEGMENT_MAP = {
+    'CONST': 'constant',
+    'ARG': 'argument',
+    'LOCAL': 'local',
+    'STATIC': 'static',
+    'THIS': 'this',
+    'THAT': 'that',
+    'POINTER': 'pointer',
+    'TEMP': 'temp',
+}
+
 class VMWriter():
     def __init__(self, path):
         self._f = open(path, 'w')
 
     def writePush(self, segment, index):
-        line = 'push {} {}'.format(segment.lower(), str(index))
+        line = 'push {} {}'.format(SEGMENT_MAP[segment], str(index))
         self._f.write(line + '\n')
 
     def writePop(self, segment, index):
-        line = 'pop {} {}'.format(segment.lower(), str(index))
+        line = 'pop {} {}'.format(SEGMENT_MAP[segment], str(index))
         self._f.write(line + '\n')
 
     def writeArithmetic(self, command):
