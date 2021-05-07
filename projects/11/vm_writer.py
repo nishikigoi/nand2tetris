@@ -4,41 +4,41 @@ class VMWriter():
     def __init__(self, path):
         self._f = open(path, 'w')
 
-    def writePush(segment, index):
+    def writePush(self, segment, index):
         line = 'push {} {}'.format(segment.lower(), str(index))
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writePop(segment, index):
+    def writePop(self, segment, index):
         line = 'pop {} {}'.format(segment.lower(), str(index))
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writeArithmetic(command):
+    def writeArithmetic(self, command):
         line = command.lower()
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writeLabel(label):
+    def writeLabel(self, label):
         line = 'label {}'.format(label.lower())
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writeGoto(label):
+    def writeGoto(self, label):
         line = 'goto {}'.format(label.lower())
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writeIf(label):
+    def writeIf(self, label):
         line = 'if-goto {}'.format(label.lower())
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writeCall(name, nArgs):
+    def writeCall(self, name, nArgs):
         line = 'call {} {}'.format(name, str(nArgs))
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writeFunction(name, nLocals):
+    def writeFunction(self, name, nLocals):
         line = 'function {} {}'.format(name, str(nLocals))
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def writeReturn():
+    def writeReturn(self):
         line = 'return'
-        self._f.write(line)
+        self._f.write(line + '\n')
 
-    def close():
+    def close(self):
         self._f.close()
