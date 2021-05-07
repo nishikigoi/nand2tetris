@@ -11,7 +11,7 @@ OPS = ['+', '-', '*', '/', '&', '|', '<', '>', '=']
 UNARY_OPS = ['-', '~']
 KIND_KEYWORD_MAP = {
     'STATIC': 'STATIC',
-    'FIELD': 'LOCAL',
+    'FIELD': 'THIS',
     'ARG': 'ARG',
     'VAR': 'LOCAL',
 }
@@ -25,6 +25,7 @@ class CompilationEngine():
         self._tbl = SymbolTable()
         self._writer = VMWriter(vm_path)
         self._while_index = 0
+        self._if_index = 0
 
     def _writeLines(self, lines):
         for line in lines:
@@ -122,6 +123,7 @@ class CompilationEngine():
         lines.append('<whileStatement>')
         label_exp = 'WHILE_EXP{}'.format(str(self._while_index))
         label_end = 'WHILE_END{}'.format(str(self._while_index))
+        self._while_index += 1
         self._writer.writeLabel(label_exp)
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
@@ -135,26 +137,38 @@ class CompilationEngine():
                 break
         self._writer.writeGoto(label_exp)
         self._writer.writeLabel(label_end)
-        self._while_index += 1
         lines.append('</whileStatement>')
 
     def compileIf(self, lines):
         lines.append('<ifStatement>')
+        label_true = 'IF_TRUE{}'.format(str(self._if_index))
+        label_false = 'IF_FALSE{}'.format(str(self._if_index))
+        label_end = 'IF_END{}'.format(str(self._if_index))
+        self._if_index += 1
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '(':
                 self.compileExpression(lines)
+                self._writer.writeIf(label_true)
+                self._writer.writeGoto(label_false)
             elif word == '{':
+                self._writer.writeLabel(label_true)
                 self.compileStatements(lines)
                 self._tokenize(lines)
+                self._writer.writeGoto(label_end)
                 break
         next_token = self._tokenizer.peekNextToken()
         next_word = next_token[0]
         if next_word == 'else':
             self._tokenize(lines) # else
             self._tokenize(lines) # {
+            self._writer.writeLabel(label_false)
             self.compileStatements(lines)
             self._tokenize(lines) # }
+        else:
+            self._writer.writeLabel(label_false)
+            self._writer.writeGoto(label_end)
+        self._writer.writeLabel(label_end)
         lines.append('</ifStatement>')
 
     def compileReturn(self, lines):
@@ -197,15 +211,15 @@ class CompilationEngine():
         elif op == '/':
             self._writer.writeCall('Math.divide', 2)
         elif op == '&':
-            pass
+            self._writer.writeArithmetic('and')
         elif op == '|':
-            pass
+            self._writer.writeArithmetic('or')
         elif op == '<':
             self._writer.writeArithmetic('lt')
         elif op == '>':
             self._writer.writeArithmetic('gt')
         elif op == '=':
-            pass
+            self._writer.writeArithmetic('eq')
         elif unary_op == '-':
             self._writer.writeArithmetic('neg')
         elif unary_op == '~':
@@ -219,7 +233,6 @@ class CompilationEngine():
             word = self._tokenize(lines) # op
             is_next_op = self.compileTerm(lines)
         if has_op:
-            print(word)
             self._writeOpFunction(word)
         lines.append('</expression>')
 
@@ -314,7 +327,6 @@ class CompilationEngine():
 
     def compileParameterList(self, lines):
         lines.append('<parameterList>')
-        self._tbl.define('this', self._classname, 'ARG')
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
@@ -347,7 +359,9 @@ class CompilationEngine():
     def compileSubroutine(self, lines):
         lines.append('<subroutineDec>')
         self._tbl.startSubroutine()
-        self._tokenize(lines)   # constructor/function/method
+        word = self._tokenize(lines)   # constructor/function/method
+        if word == 'method':
+            self._tbl.define('this', self._classname, 'ARG')
         self._tokenize(lines)   # type
         self._funcname = self._tokenize(lines)   # function
         while self._tokenizer.hasMoreTokens():
