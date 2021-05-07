@@ -243,7 +243,16 @@ class CompilationEngine():
         elif is_call_sub:
             self._writer.writeCall(wordcat, n_exprs)
         elif wordcat != '':
-            if wordcat != 'true' and wordcat != 'false' and wordcat != 'null' and wordcat != 'this':
+            if wordcat == 'true':
+                self._writer.writePush('CONST', '0')
+                self._writer.writeArithmetic('not')
+            elif wordcat == 'false':
+                self._writer.writePush('CONST', '0')
+            elif wordcat == 'null':
+                pass
+            elif wordcat == 'this':
+                pass
+            else:
                 self._writer.writePush(KIND_KEYWORD_MAP[self._tbl.kindOf(wordcat)], self._tbl.indexOf(wordcat))
         lines.append('</term>')
         return is_next_op
