@@ -4,71 +4,72 @@ push constant 16
 push constant 1
 neg
 call Main.fillMemory 3
-push constant Memory
-push constant .
-push constant peek
+pop temp 0
 push constant 8000
-push constant value
+call Memory.peek 1
+pop local 0
+push local 0
 call Main.convert 1
 pop temp 0
 push constant 0
 return
 function Main.convert 3
-push constant true
-push constant loop
-push constant position
+pop local 2
+push local 2
+push local 1
 push constant 1
 add
-push constant Main
-push constant .
-push constant nextMask
-push constant mask
-push constant position
+pop local 1
+push local 0
+call Main.nextMask 1
+pop local 0
+push local 1
 push constant 16
 not
-push constant value
-push constant mask
+push argument 1
+push local 0
 push constant 0
 not
 push constant 8000
-push constant position
+push local 1
 add
 push constant 1
 call Memory.poke 2
+pop temp 0
 push constant 8000
-push constant position
+push local 1
 add
 push constant 0
 call Memory.poke 2
-push constant false
 pop temp 0
+pop local 2
 push constant 0
 return
 function Main.nextMask 0
-push constant mask
+push argument 1
 push constant 0
 push constant 1
-pop temp 0
 push constant 0
 return
-push constant mask
+push argument 1
 push constant 2
 call Math.multiply 2
-pop temp 0
 push constant 0
 return
 function Main.fillMemory 0
-push constant length
+push argument 2
 push constant 0
-push constant startAddress
-push constant value
+push argument 1
+push argument 3
 call Memory.poke 2
-push constant length
+pop temp 0
+push argument 2
 push constant 1
 sub
-push constant startAddress
+pop argument 2
+push argument 1
 push constant 1
 add
-pop temp 0
+pop argument 1
 push constant 0
 return

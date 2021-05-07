@@ -9,6 +9,12 @@ from vm_writer import VMWriter
 
 OPS = ['+', '-', '*', '/', '&', '|', '<', '>', '=']
 UNARY_OPS = ['-', '~']
+KIND_KEYWORD_MAP = {
+    'STATIC': 'STATIC',
+    'FIELD': 'LOCAL',
+    'ARG': 'ARG',
+    'VAR': 'LOCAL',
+}
 
 class CompilationEngine():
     def __init__(self, path, out_f, vm_path):
@@ -94,16 +100,20 @@ class CompilationEngine():
                 break
             wordcat += word
         self._writer.writeCall(funcname, n_exprs)
+        self._writer.writePop('TEMP', 0)
         lines.append('</doStatement>')
 
     def compileLet(self, lines):
         lines.append('<letStatement>')
+        self._tokenize(lines)   # let
+        varname = self._tokenize(lines) # varName
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '=' or word == '[':
                 self.compileExpression(lines)
             elif word == ';':
                 break
+        self._writer.writePop(KIND_KEYWORD_MAP[self._tbl.kindOf(varname)], self._tbl.indexOf(varname))
         lines.append('</letStatement>')
 
     def compileWhile(self, lines):
@@ -148,7 +158,6 @@ class CompilationEngine():
                     break
             else:
                 self.compileExpression(lines)
-        self._writer.writePop('TEMP', 0)
         self._writer.writePush('CONST', 0)
         self._writer.writeReturn()
         lines.append('</returnStatement>')
@@ -197,6 +206,8 @@ class CompilationEngine():
         is_next_op = False
         lines.append('<term>')
         is_first_word = True
+        wordcat = ''
+        is_call_sub = False
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
@@ -217,15 +228,23 @@ class CompilationEngine():
                     break
                 word = self._tokenize(lines)
                 if word == '(':
-                    self.compileExpressionList(lines)
+                    is_call_sub = True
+                    n_exprs = self.compileExpressionList(lines)
                     self._tokenize(lines) # ')'
                     break
                 elif word == '[':
                     self.compileExpression(lines)
                     self._tokenize(lines) # ']'
                     break
-                self._writer.writePush('CONST', word)
+                wordcat += word
             is_first_word = False
+        if wordcat.isdigit():
+            self._writer.writePush('CONST', wordcat)
+        elif is_call_sub:
+            self._writer.writeCall(wordcat, n_exprs)
+        elif wordcat != '':
+            if wordcat != 'true' and wordcat != 'false' and wordcat != 'null' and wordcat != 'this':
+                self._writer.writePush(KIND_KEYWORD_MAP[self._tbl.kindOf(wordcat)], self._tbl.indexOf(wordcat))
         lines.append('</term>')
         return is_next_op
 
