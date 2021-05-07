@@ -24,6 +24,7 @@ class CompilationEngine():
         self._funcname = ''
         self._tbl = SymbolTable()
         self._writer = VMWriter(vm_path)
+        self._while_index = 0
 
     def _writeLines(self, lines):
         for line in lines:
@@ -35,23 +36,24 @@ class CompilationEngine():
         tag = TOKEN_TYPE_MAP[token_type]
         tag_begin = '<{}>'.format(tag)
         tag_end = '</{}>'.format(tag)
+        tag_word = ''
         if token_type == 'KEYWORD':
             word = self._tokenizer.keyWord().lower()
         elif token_type == 'SYMBOL':
             word = self._tokenizer.symbol()
             if word == '<':
-                word = '&lt;'
+                tag_word = '&lt;'
             elif word == '>':
-                word = '&gt;'
+                tag_word = '&gt;'
             elif word == '&':
-                word = '&amp;'
+                tag_word = '&amp;'
         elif token_type == 'IDENTIFIER':
             word = self._tokenizer.identifier()
         elif token_type == 'INT_CONST':
             word = str(self._tokenizer.intVal())
         elif token_type == 'STRING_CONST':
             word = self._tokenizer.stringVal()
-        lines.append(' '.join([tag_begin, word, tag_end]))
+        lines.append(' '.join([tag_begin, tag_word if tag_word else word, tag_end]))
         return word
 
     def compileClass(self):
@@ -118,14 +120,22 @@ class CompilationEngine():
 
     def compileWhile(self, lines):
         lines.append('<whileStatement>')
+        label_exp = 'WHILE_EXP{}'.format(str(self._while_index))
+        label_end = 'WHILE_END{}'.format(str(self._while_index))
+        self._writer.writeLabel(label_exp)
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
             if word == '(':
                 self.compileExpression(lines)
+                self._writer.writeArithmetic('not')
+                self._writer.writeIf(label_end)
             elif word == '{':
                 self.compileStatements(lines)
                 self._tokenize(lines)
                 break
+        self._writer.writeGoto(label_exp)
+        self._writer.writeLabel(label_end)
+        self._while_index += 1
         lines.append('</whileStatement>')
 
     def compileIf(self, lines):
@@ -186,6 +196,16 @@ class CompilationEngine():
             self._writer.writeCall('Math.multiply', 2)
         elif op == '/':
             self._writer.writeCall('Math.divide', 2)
+        elif op == '&':
+            pass
+        elif op == '|':
+            pass
+        elif op == '<':
+            self._writer.writeArithmetic('lt')
+        elif op == '>':
+            self._writer.writeArithmetic('gt')
+        elif op == '=':
+            pass
         elif unary_op == '-':
             self._writer.writeArithmetic('neg')
         elif unary_op == '~':
@@ -199,6 +219,7 @@ class CompilationEngine():
             word = self._tokenize(lines) # op
             is_next_op = self.compileTerm(lines)
         if has_op:
+            print(word)
             self._writeOpFunction(word)
         lines.append('</expression>')
 

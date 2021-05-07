@@ -28,15 +28,15 @@ class VMWriter():
         self._f.write(line + '\n')
 
     def writeLabel(self, label):
-        line = 'label {}'.format(label.lower())
+        line = 'label {}'.format(label)
         self._f.write(line + '\n')
 
     def writeGoto(self, label):
-        line = 'goto {}'.format(label.lower())
+        line = 'goto {}'.format(label)
         self._f.write(line + '\n')
 
     def writeIf(self, label):
-        line = 'if-goto {}'.format(label.lower())
+        line = 'if-goto {}'.format(label)
         self._f.write(line + '\n')
 
     def writeCall(self, name, nArgs):
