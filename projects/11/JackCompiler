@@ -5,16 +5,19 @@ import sys
 from jack_tokenizer import JackTokenizer
 from jack_tokenizer import TOKEN_TYPE_MAP
 from symbol_table import SymbolTable
+from vm_writer import VMWriter
 
 OPS = ['+', '-', '*', '/', '&', '|', '<', '>', '=']
 UNARY_OPS = ['-', '~']
 
 class CompilationEngine():
-    def __init__(self, path, out_f):
+    def __init__(self, path, out_f, vm_path):
         self._tokenizer = JackTokenizer(path)
         self._f = out_f
         self._classname = ''
+        self._funcname = ''
         self._tbl = SymbolTable()
+        self._writer = VMWriter(vm_path)
 
     def _writeLines(self, lines):
         for line in lines:
@@ -219,9 +222,14 @@ class CompilationEngine():
 
     def _compileVarDec(self, lines):
         lines.append('<varDec>')
+        self._tokenize(lines)   # var
+        _type = self._tokenize(lines)   # type
         while self._tokenizer.hasMoreTokens():
-            if self._tokenize(lines) == ';':
+            word = self._tokenize(lines)
+            if word == ';':
                 break
+            elif word != ',':
+                self._tbl.define(word, _type, 'VAR')
         lines.append('</varDec>')
 
     def compileParameterList(self, lines):
@@ -257,6 +265,8 @@ class CompilationEngine():
     def compileSubroutine(self, lines):
         lines.append('<subroutineDec>')
         self._tbl.startSubroutine()
+        self._tokenize(lines)   # constructor/function/method
+        self._funcname = self._tokenize(lines)   # function
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
@@ -275,8 +285,9 @@ class CompilationEngine():
 def main():
     input = sys.argv[1]
     output = input.replace('.jack', '.xml')
+    vm_path = input.replace('.jack', '.vm')
     with open(output, 'w') as f:
-        engine = CompilationEngine(input, f)
+        engine = CompilationEngine(input, f, vm_path)
         engine.compileClass()
 
 if __name__ == "__main__":
