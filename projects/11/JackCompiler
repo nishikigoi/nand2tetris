@@ -321,6 +321,10 @@ class CompilationEngine():
                 elif word == '[':
                     self.compileExpression(lines)
                     self._tokenize(lines) # ']'
+                    next_token = self._tokenizer.peekNextToken()
+                    next_word = next_token[0]
+                    if next_word in OPS:
+                        is_next_op = True
                     is_array = True
                     break
                 wordcat += word
@@ -338,7 +342,7 @@ class CompilationEngine():
             elif wordcat == 'false':
                 self._writer.writePush('CONST', '0')
             elif wordcat == 'null':
-                pass
+                self._writer.writePush('CONST', '0')
             elif wordcat == 'this':
                 self._writer.writePush('POINTER', '0')
             else:
