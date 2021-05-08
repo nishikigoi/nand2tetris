@@ -317,7 +317,16 @@ class CompilationEngine():
             elif wordcat == 'this':
                 self._writer.writePush('POINTER', '0')
             else:
-                self._writer.writePush(KIND_KEYWORD_MAP[self._tbl.kindOf(wordcat)], self._tbl.indexOf(wordcat))
+                if self._tbl.kindOf(wordcat):
+                    # symbol
+                    self._writer.writePush(KIND_KEYWORD_MAP[self._tbl.kindOf(wordcat)], self._tbl.indexOf(wordcat))
+                else:
+                    # string literal
+                    self._writer.writePush('CONST', len(wordcat))
+                    self._writer.writeCall('String.new', 1)
+                    for c in wordcat:
+                        self._writer.writePush('CONST', ord(c))
+                        self._writer.writeCall('String.appendChar', 2)
         lines.append('</term>')
         return is_next_op
 
