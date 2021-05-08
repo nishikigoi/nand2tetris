@@ -73,7 +73,6 @@ class CompilationEngine():
             elif self._tokenize(lines) == '}':
                 break
         lines.append('</class>')
-        print(self._tbl.getClassTbl())
         self._writeLines(lines)
 
     def compileClassVarDec(self, lines):
@@ -460,7 +459,6 @@ class CompilationEngine():
                 break
             else:
                 self._tokenize(lines)
-        print(self._tbl.getSubTbl())
         lines.append('</subroutineDec>')
 
 
