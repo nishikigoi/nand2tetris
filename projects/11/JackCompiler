@@ -138,13 +138,25 @@ class CompilationEngine():
         lines.append('<letStatement>')
         self._tokenize(lines)   # let
         varname = self._tokenize(lines) # varName
+        is_array = False
         while self._tokenizer.hasMoreTokens():
             word = self._tokenize(lines)
-            if word == '=' or word == '[':
+            if word == '=':
                 self.compileExpression(lines)
+            elif word == '[':
+                is_array = True
+                self.compileExpression(lines)
+                self._writer.writePush(KIND_KEYWORD_MAP[self._tbl.kindOf(varname)], self._tbl.indexOf(varname))
+                self._writer.writeArithmetic('add')
             elif word == ';':
                 break
-        self._writer.writePop(KIND_KEYWORD_MAP[self._tbl.kindOf(varname)], self._tbl.indexOf(varname))
+        if is_array:
+            self._writer.writePop('TEMP', 0)
+            self._writer.writePop('POINTER', 1)
+            self._writer.writePush('TEMP', 0)
+            self._writer.writePop('THAT', 0)
+        else:
+            self._writer.writePop(KIND_KEYWORD_MAP[self._tbl.kindOf(varname)], self._tbl.indexOf(varname))
         lines.append('</letStatement>')
 
     def compileWhile(self, lines):
@@ -272,6 +284,7 @@ class CompilationEngine():
         is_first_word = True
         wordcat = ''
         is_call_sub = False
+        is_array = False
         while self._tokenizer.hasMoreTokens():
             next_token = self._tokenizer.peekNextToken()
             next_word = next_token[0]
@@ -285,7 +298,7 @@ class CompilationEngine():
                     self.compileTerm(lines)
                     self._writeOpFunction(op=None, unary_op=word)
             else:
-                if next_word == ')' or next_word == ';' or next_word == ']' or next_word == ',':
+                if next_word == ')' or next_word == ';' or next_word == ',' or next_word == ']':
                     break
                 elif next_word in OPS:
                     is_next_op = True
@@ -299,6 +312,7 @@ class CompilationEngine():
                 elif word == '[':
                     self.compileExpression(lines)
                     self._tokenize(lines) # ']'
+                    is_array = True
                     break
                 wordcat += word
             is_first_word = False
@@ -320,6 +334,10 @@ class CompilationEngine():
                 if self._tbl.kindOf(wordcat):
                     # symbol
                     self._writer.writePush(KIND_KEYWORD_MAP[self._tbl.kindOf(wordcat)], self._tbl.indexOf(wordcat))
+                    if is_array:
+                        self._writer.writeArithmetic('add')
+                        self._writer.writePop('POINTER', 1)
+                        self._writer.writePush('THAT', 0)
                 else:
                     # string literal
                     self._writer.writePush('CONST', len(wordcat))
