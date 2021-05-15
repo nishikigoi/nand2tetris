@@ -9,12 +9,46 @@
  */
 class Math {
 
+    static Array a;
+
     /** Initializes the library. */
     function void init() {
+        let a[0] = 1;
+        let a[1] = 2;
+        let a[2] = 4;
+        let a[3] = 8;
+        let a[4] = 16;
+        let a[5] = 32;
+        let a[6] = 64;
+        let a[7] = 128;
+        let a[8] = 256;
+        let a[9] = 512;
+        let a[10] = 1024;
+        let a[11] = 2048;
+        let a[12] = 4096;
+        let a[13] = 8192;
+        let a[14] = 16384;
+        let a[15] = 0;
+        return;
     }
 
     /** Returns the absolute value of x. */
     function int abs(int x) {
+        if (x) {
+            return x;
+        } else {
+            return -x;
+        }
+    }
+
+    function boolean bit(int x, int j) {
+        var int n;
+        let n = x & a[j];
+        if (n) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /** Returns the product of x and y. 
@@ -23,6 +57,17 @@ class Math {
      *  the Jack expressions x*y and multiply(x,y) return the same value.
      */
     function int multiply(int x, int y) {
+        var int sum, shiftedX, i;
+        let sum = 0;
+        let shiftedX = x;
+        let i = 0;
+        while (i < 16) {
+            if (Math.bit(y, i) = 1) {
+                let sum = sum + shiftedX;
+            }
+            let shiftedX = shiftedX + shiftedX;
+        }
+        return sum;
     }
 
     /** Returns the integer part of x/y.
@@ -31,17 +76,46 @@ class Math {
      *  the Jack expressions x/y and divide(x,y) return the same value.
      */
     function int divide(int x, int y) {
+        var int q;
+        if (y > x) {
+            return 0;
+        }
+        let q = Math.divide(x, 2 * y);
+        if ((x - 2 * q * y) < y) {
+            return 2 * q;
+        } else {
+            return 2 * q + 1;
+        }
     }
 
     /** Returns the integer part of the square root of x. */
     function int sqrt(int x) {
+        var int y, j;
+        let y = 0;
+        let j = 15;
+        while (j) {
+            if ((y + a[j]) * (y + a[j]) - x) {
+                let y = y + a[j];
+            }
+        }
+        return y;
     }
 
     /** Returns the greater number. */
     function int max(int a, int b) {
+        if (a > b) {
+            return a;
+        } else {
+            return b;
+        }
     }
 
     /** Returns the smaller number. */
     function int min(int a, int b) {
+        if (a > b) {
+            return b;
+        } else {
+            return a;
+        }
     }
 }
